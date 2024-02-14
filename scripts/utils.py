@@ -6,7 +6,7 @@ color_palette = dict(zip(["train", "val", "test"], sns.color_palette()[:3]))
 
 
 def plot_model_preds_scatter(loss_df, lab, fn=None):
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(gridspec_kw={"right": 0.8})
 
     in_range_idx = loss_df["in_range"] == 0
     df_in_range = loss_df.loc[in_range_idx, :]
