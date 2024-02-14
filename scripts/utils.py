@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas
-from scipy.stats import kendalltau, spearmanr
+from scipy.stats import bootstrap, kendalltau, spearmanr
 import seaborn as sns
 
 color_palette = dict(zip(["train", "val", "test"], sns.color_palette()[:3]))
@@ -66,7 +66,17 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
     maes = ["MAE"]
     for sp in ["train", "val", "test"]:
         df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
-        maes.append(f"{sp}: {(df_tmp['target'] - df_tmp['pred']).abs().mean():0.3f}")
+        mae_str = f"{sp}: ${(df_tmp['target'] - df_tmp['pred']).abs().mean():0.3f}"
+        # Calculate bootstrapped confidence intervals
+        conf_interval = bootstrap(
+            (df_tmp["target"], df_tmp["pred"]),
+            statistic=lambda target, pred: np.abs(target - pred).mean(),
+            method="basic",
+            confidence_level=0.95,
+            paired=True,
+        ).confidence_interval
+        mae_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
+        maes.append(mae_str)
     mae_text = "\n".join(maes)
     ax.text(
         x=0.85,
@@ -81,13 +91,23 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
     rmses = ["RMSE"]
     for sp in ["train", "val", "test"]:
         df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
-        rmses.append(
-            f"{sp}: {np.sqrt((df_tmp['target'] - df_tmp['pred']).pow(2).mean()):0.3f}"
+        rmse_str = (
+            f"{sp}: ${np.sqrt((df_tmp['target'] - df_tmp['pred']).pow(2).mean()):0.3f}"
         )
+        # Calculate bootstrapped confidence intervals
+        conf_interval = bootstrap(
+            (df_tmp["target"], df_tmp["pred"]),
+            statistic=lambda target, pred: np.sqrt(np.power(target - pred, 2).mean()),
+            method="basic",
+            confidence_level=0.95,
+            paired=True,
+        ).confidence_interval
+        rmse_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
+        rmses.append(rmse_str)
     rmse_text = "\n".join(rmses)
     ax.text(
         x=0.85,
-        y=0.8,
+        y=0.75,
         s=rmse_text,
         transform=fig.transFigure,
         ha="left",
@@ -98,13 +118,23 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
     sp_rs = ["Spearman's $\\rho$"]
     for sp in ["train", "val", "test"]:
         df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
-        sp_rs.append(
-            f"{sp}: {spearmanr(df_tmp['target'], df_tmp['pred']).statistic:0.3f}"
+        sp_r_str = (
+            f"{sp}: ${spearmanr(df_tmp['target'], df_tmp['pred']).statistic:0.3f}"
         )
+        # Calculate bootstrapped confidence intervals
+        conf_interval = bootstrap(
+            (df_tmp["target"], df_tmp["pred"]),
+            statistic=lambda target, pred: spearmanr(target, pred).statistic,
+            method="basic",
+            confidence_level=0.95,
+            paired=True,
+        ).confidence_interval
+        sp_r_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
+        sp_rs.append(sp_r_str)
     sp_r_text = "\n".join(sp_rs)
     ax.text(
         x=0.85,
-        y=0.65,
+        y=0.55,
         s=sp_r_text,
         transform=fig.transFigure,
         ha="left",
@@ -115,13 +145,23 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
     taus = ["Kendall's $\\tau$"]
     for sp in ["train", "val", "test"]:
         df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
-        taus.append(
-            f"{sp}: {kendalltau(df_tmp['target'], df_tmp['pred']).statistic:0.3f}"
+        tau_str = (
+            f"{sp}: ${kendalltau(df_tmp['target'], df_tmp['pred']).statistic:0.3f}"
         )
+        # Calculate bootstrapped confidence intervals
+        conf_interval = bootstrap(
+            (df_tmp["target"], df_tmp["pred"]),
+            statistic=lambda target, pred: kendalltau(target, pred).statistic,
+            method="basic",
+            confidence_level=0.95,
+            paired=True,
+        ).confidence_interval
+        tau_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
+        taus.append(tau_str)
     tau_text = "\n".join(taus)
     ax.text(
         x=0.85,
-        y=0.5,
+        y=0.35,
         s=tau_text,
         transform=fig.transFigure,
         ha="left",
