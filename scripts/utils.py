@@ -78,14 +78,6 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
         mae_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
         maes.append(mae_str)
     mae_text = "\n".join(maes)
-    ax.text(
-        x=0.85,
-        y=0.95,
-        s=mae_text,
-        transform=fig.transFigure,
-        ha="left",
-        va="top",
-    )
 
     # Calculate RMSEs
     rmses = ["RMSE"]
@@ -105,14 +97,6 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
         rmse_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
         rmses.append(rmse_str)
     rmse_text = "\n".join(rmses)
-    ax.text(
-        x=0.85,
-        y=0.75,
-        s=rmse_text,
-        transform=fig.transFigure,
-        ha="left",
-        va="top",
-    )
 
     # Calculate Spearman r
     sp_rs = ["Spearman's $\\rho$"]
@@ -132,14 +116,6 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
         sp_r_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
         sp_rs.append(sp_r_str)
     sp_r_text = "\n".join(sp_rs)
-    ax.text(
-        x=0.85,
-        y=0.55,
-        s=sp_r_text,
-        transform=fig.transFigure,
-        ha="left",
-        va="top",
-    )
 
     # Calculate Kendall's tau
     taus = ["Kendall's $\\tau$"]
@@ -159,13 +135,15 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
         tau_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
         taus.append(tau_str)
     tau_text = "\n".join(taus)
+
+    metrics_text = "\n\n".join([mae_text, rmse_text, sp_r_text, tau_text])
     ax.text(
         x=0.85,
-        y=0.35,
-        s=tau_text,
+        y=0.5,
+        s=metrics_text,
         transform=fig.transFigure,
         ha="left",
-        va="top",
+        va="center",
     )
 
     if fn:
