@@ -28,7 +28,7 @@ def main(in_file, out_dir):
         try:
             loss_dict_fn, lab = line.split(",")
         except ValueError:
-            if line == "\n":
+            if line == "":
                 continue
             else:
                 print(f"Not enough values in line: {line}", flush=True)
