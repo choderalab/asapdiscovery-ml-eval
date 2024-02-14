@@ -1,12 +1,14 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas
+from scipy.stats import kendalltau, spearmanr
 import seaborn as sns
 
 color_palette = dict(zip(["train", "val", "test"], sns.color_palette()[:3]))
 
 
 def plot_model_preds_scatter(loss_df, lab, fn=None):
-    fig, ax = plt.subplots(gridspec_kw={"right": 0.8})
+    fig, ax = plt.subplots(gridspec_kw={"right": 0.825})
 
     in_range_idx = loss_df["in_range"] == 0
     df_in_range = loss_df.loc[in_range_idx, :]
@@ -60,17 +62,69 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
         # loc="upper right",
     )
 
-    maes = ["Split MAE"]
+    # Calculate MAEs
+    maes = ["MAE"]
     for sp in ["train", "val", "test"]:
         df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
         maes.append(f"{sp}: {(df_tmp['target'] - df_tmp['pred']).abs().mean():0.3f}")
     mae_text = "\n".join(maes)
     ax.text(
-        x=0.975,
+        x=0.85,
         y=0.95,
         s=mae_text,
         transform=fig.transFigure,
-        ha="right",
+        ha="left",
+        va="top",
+    )
+
+    # Calculate RMSEs
+    rmses = ["RMSE"]
+    for sp in ["train", "val", "test"]:
+        df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
+        rmses.append(
+            f"{sp}: {np.sqrt((df_tmp['target'] - df_tmp['pred']).pow(2).mean()):0.3f}"
+        )
+    rmse_text = "\n".join(rmses)
+    ax.text(
+        x=0.85,
+        y=0.8,
+        s=rmse_text,
+        transform=fig.transFigure,
+        ha="left",
+        va="top",
+    )
+
+    # Calculate Spearman r
+    sp_rs = ["Spearman's $\\rho$"]
+    for sp in ["train", "val", "test"]:
+        df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
+        sp_rs.append(
+            f"{sp}: {spearmanr(df_tmp['target'], df_tmp['pred']).statistic:0.3f}"
+        )
+    sp_r_text = "\n".join(sp_rs)
+    ax.text(
+        x=0.85,
+        y=0.65,
+        s=sp_r_text,
+        transform=fig.transFigure,
+        ha="left",
+        va="top",
+    )
+
+    # Calculate Kendall's tau
+    taus = ["Kendall's $\\tau$"]
+    for sp in ["train", "val", "test"]:
+        df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
+        taus.append(
+            f"{sp}: {kendalltau(df_tmp['target'], df_tmp['pred']).statistic:0.3f}"
+        )
+    tau_text = "\n".join(taus)
+    ax.text(
+        x=0.85,
+        y=0.5,
+        s=tau_text,
+        transform=fig.transFigure,
+        ha="left",
         va="top",
     )
 
