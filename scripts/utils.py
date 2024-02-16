@@ -24,7 +24,7 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
         style="Assay Range",
         markers={"Below Range": "<", "In Range": "o", "Above Range": ">"},
         style_order=["Below Range", "In Range", "Above Range"],
-        # facet_kws={"legend_out": False},
+        facet_kws={"legend_out": False},
     )
 
     # Axes bounds
@@ -67,7 +67,7 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
         )
 
     # fg.legend.set_loc("upper right")
-    fg.legend.set_bbox_to_anchor((0.9, 0.8, 0.1, 0.1), transform=fg.figure.transFigure)
+    # fg.legend.set_bbox_to_anchor((0.9, 0.8, 0.1, 0.1), transform=fg.figure.transFigure)
 
     # handles, labels = ax.get_legend_handles_labels()
     # labels = [
@@ -86,12 +86,11 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
     #     # loc="upper right",
     # )
 
-    # Calculate MAEs
-    maes = ["MAE"]
-    for sp in ["train", "val", "test"]:
+    for i, sp in enumerate(["train", "val", "test"]):
         df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
-        mae_str = f"{sp}: ${(df_tmp['target'] - df_tmp['pred']).abs().mean():0.3f}"
-        # Calculate bootstrapped confidence intervals
+
+        # Calculate MAE and bootstrapped confidence interval
+        mae = (df_tmp["target"] - df_tmp["pred"]).abs().mean()
         conf_interval = bootstrap(
             (df_tmp["target"], df_tmp["pred"]),
             statistic=lambda target, pred: np.abs(target - pred).mean(),
@@ -99,18 +98,13 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
             confidence_level=0.95,
             paired=True,
         ).confidence_interval
-        mae_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
-        maes.append(mae_str)
-    mae_text = "\n".join(maes)
-
-    # Calculate RMSEs
-    rmses = ["RMSE"]
-    for sp in ["train", "val", "test"]:
-        df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
-        rmse_str = (
-            f"{sp}: ${np.sqrt((df_tmp['target'] - df_tmp['pred']).pow(2).mean()):0.3f}"
+        mae_str = (
+            "MAE: "
+            f"${mae:0.3f}^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
         )
-        # Calculate bootstrapped confidence intervals
+
+        # Calculate RMSE and bootstrapped confidence interval
+        rmse = np.sqrt((df_tmp["target"] - df_tmp["pred"]).pow(2).mean())
         conf_interval = bootstrap(
             (df_tmp["target"], df_tmp["pred"]),
             statistic=lambda target, pred: np.sqrt(np.power(target - pred, 2).mean()),
@@ -118,18 +112,13 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
             confidence_level=0.95,
             paired=True,
         ).confidence_interval
-        rmse_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
-        rmses.append(rmse_str)
-    rmse_text = "\n".join(rmses)
-
-    # Calculate Spearman r
-    sp_rs = ["Spearman's $\\rho$"]
-    for sp in ["train", "val", "test"]:
-        df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
-        sp_r_str = (
-            f"{sp}: ${spearmanr(df_tmp['target'], df_tmp['pred']).statistic:0.3f}"
+        rmse_str = (
+            "RMSE: "
+            f"${rmse:0.3f}^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
         )
-        # Calculate bootstrapped confidence intervals
+
+        # Calculate Spearman r and bootstrapped confidence interval
+        sp_r = spearmanr(df_tmp["target"], df_tmp["pred"]).statistic
         conf_interval = bootstrap(
             (df_tmp["target"], df_tmp["pred"]),
             statistic=lambda target, pred: spearmanr(target, pred).statistic,
@@ -137,18 +126,13 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
             confidence_level=0.95,
             paired=True,
         ).confidence_interval
-        sp_r_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
-        sp_rs.append(sp_r_str)
-    sp_r_text = "\n".join(sp_rs)
-
-    # Calculate Kendall's tau
-    taus = ["Kendall's $\\tau$"]
-    for sp in ["train", "val", "test"]:
-        df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
-        tau_str = (
-            f"{sp}: ${kendalltau(df_tmp['target'], df_tmp['pred']).statistic:0.3f}"
+        sp_r_str = (
+            "Spearman's $\\rho$: "
+            f"${sp_r:0.3f}^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
         )
-        # Calculate bootstrapped confidence intervals
+
+        # Calculate Kendall's tau and bootstrapped confidence interval
+        tau = kendalltau(df_tmp["target"], df_tmp["pred"]).statistic
         conf_interval = bootstrap(
             (df_tmp["target"], df_tmp["pred"]),
             statistic=lambda target, pred: kendalltau(target, pred).statistic,
@@ -156,19 +140,20 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
             confidence_level=0.95,
             paired=True,
         ).confidence_interval
-        tau_str += f"^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
-        taus.append(tau_str)
-    tau_text = "\n".join(taus)
+        tau_str = (
+            "Kendall's $\\tau$: "
+            f"${tau:0.3f}^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
+        )
 
-    metrics_text = "\n\n".join([mae_text, rmse_text, sp_r_text, tau_text])
-    ax.text(
-        x=0.925,
-        y=0.75,
-        s=metrics_text,
-        transform=fg.figure.transFigure,
-        ha="left",
-        va="top",
-    )
+        metrics_text = "\n".join([mae_str, rmse_str, sp_r_str, tau_str])
+        fg.axes[0, i].text(
+            x=0.575,
+            y=0.275,
+            s=metrics_text,
+            transform=fg.axes[0, i].transAxes,
+            ha="left",
+            va="top",
+        )
 
     if fn:
         plt.savefig(fn, dpi=200, bbox_inches="tight")
