@@ -8,8 +8,6 @@ color_palette = dict(zip(["train", "val", "test"], sns.color_palette()[:3]))
 
 
 def plot_model_preds_scatter(loss_df, lab, fn=None):
-    # fig, ax = plt.subplots(gridspec_kw={"right": 0.825})
-
     # Set so the legend looks nicer
     legend_text_mapper = {-1: "Below Range", 0: "In Range", 1: "Above Range"}
     loss_df["Assay Range"] = list(map(legend_text_mapper.get, loss_df["in_range"]))
@@ -24,16 +22,18 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
         style="Assay Range",
         markers={"Below Range": "<", "In Range": "o", "Above Range": ">"},
         style_order=["Below Range", "In Range", "Above Range"],
-        facet_kws={"legend_out": False},
     )
+
+    # Figure title
+    fg.figure.subplots_adjust(top=0.9)
+    fg.figure.suptitle(lab)
 
     # Axes bounds
     min_val = loss_df.loc[:, ["target", "pred"]].values.flatten().min() - 0.5
     max_val = loss_df.loc[:, ["target", "pred"]].values.flatten().max() + 0.5
 
     for ax in fg.axes[0]:
-        # Set title and axis labels
-        # ax.set_title(lab)
+        # Set axis labels
         ax.set_ylabel("Predicted pIC50")
         ax.set_xlabel("Experimental pIC50")
 
@@ -65,26 +65,6 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
             color="gray",
             alpha=0.2,
         )
-
-    # fg.legend.set_loc("upper right")
-    # fg.legend.set_bbox_to_anchor((0.9, 0.8, 0.1, 0.1), transform=fg.figure.transFigure)
-
-    # handles, labels = ax.get_legend_handles_labels()
-    # labels = [
-    #     "Split",
-    #     "train",
-    #     "val",
-    #     "test",
-    #     "Assay Range",
-    #     "Below Range",
-    #     "In Range",
-    #     "Above Range",
-    # ]
-    # ax.legend(
-    #     handles=handles,
-    #     labels=labels,
-    #     # loc="upper right",
-    # )
 
     for i, sp in enumerate(["train", "val", "test"]):
         df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
