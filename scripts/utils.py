@@ -8,59 +8,83 @@ color_palette = dict(zip(["train", "val", "test"], sns.color_palette()[:3]))
 
 
 def plot_model_preds_scatter(loss_df, lab, fn=None):
-    fig, ax = plt.subplots(gridspec_kw={"right": 0.825})
+    # fig, ax = plt.subplots(gridspec_kw={"right": 0.825})
+
+    # Set so the legend looks nicer
+    legend_text_mapper = {-1: "Below Range", 0: "In Range", 1: "Above Range"}
+    loss_df["Assay Range"] = list(map(legend_text_mapper.get, loss_df["in_range"]))
 
     in_range_idx = loss_df["in_range"] == 0
     df_in_range = loss_df.loc[in_range_idx, :]
-    sns.scatterplot(
+    fg = sns.relplot(
         data=loss_df,
         x="target",
         y="pred",
-        hue="split",
-        palette=color_palette,
-        hue_order=["train", "val", "test"],
-        style="in_range",
-        markers={-1: "<", 0: "o", 1: ">"},
-        style_order=[-1, 0, 1],
-        ax=ax,
+        col="split",
+        style="Assay Range",
+        markers={"Below Range": "<", "In Range": "o", "Above Range": ">"},
+        style_order=["Below Range", "In Range", "Above Range"],
+        # facet_kws={"legend_out": False},
     )
 
-    # Set title and axis labels
-    ax.set_title(lab)
-    ax.set_ylabel("Predicted pIC50")
-    ax.set_xlabel("Experimental pIC50")
+    # Axes bounds
+    min_val = loss_df.loc[:, ["target", "pred"]].values.flatten().min() - 0.5
+    max_val = loss_df.loc[:, ["target", "pred"]].values.flatten().max() + 0.5
 
-    # Make it a square
-    # ax.set_aspect("equal", "box")
-    min_lim = min((ax.get_xlim()[0], ax.get_ylim()[0]))
-    max_lim = max((ax.get_xlim()[1], ax.get_ylim()[1]))
-    ax.set_xlim((min_lim, max_lim))
-    ax.set_ylim((min_lim, max_lim))
+    for ax in fg.axes[0]:
+        # Set title and axis labels
+        # ax.set_title(lab)
+        ax.set_ylabel("Predicted pIC50")
+        ax.set_xlabel("Experimental pIC50")
 
-    # Plot y=x line
-    ax.plot(
-        [min_lim, max_lim],
-        [min_lim, max_lim],
-        color="black",
-        ls="--",
-    )
+        # Make it a square
+        ax.set_aspect("equal", "box")
+        ax.set_xlim((min_val, max_val))
+        ax.set_ylim((min_val, max_val))
 
-    handles, labels = ax.get_legend_handles_labels()
-    labels = [
-        "Split",
-        "train",
-        "val",
-        "test",
-        "Assay Range",
-        "Below Range",
-        "In Range",
-        "Above Range",
-    ]
-    ax.legend(
-        handles=handles,
-        labels=labels,
-        # loc="upper right",
-    )
+        # Plot y=x line
+        ax.plot(
+            [min_val, max_val],
+            [min_val, max_val],
+            color="black",
+            ls="--",
+        )
+
+        # Shade  0.5 kcal/mol and 1 kcal/mol regions
+        ax.fill_between(
+            [min_val, max_val],
+            [min_val - 0.5 * np.log(10), max_val - 0.5 * np.log(10)],
+            [min_val + 0.5 * np.log(10), max_val + 0.5 * np.log(10)],
+            color="gray",
+            alpha=0.2,
+        )
+        ax.fill_between(
+            [min_val, max_val],
+            [min_val - np.log(10), max_val - np.log(10)],
+            [min_val + np.log(10), max_val + np.log(10)],
+            color="gray",
+            alpha=0.2,
+        )
+
+    # fg.legend.set_loc("upper right")
+    fg.legend.set_bbox_to_anchor((0.9, 0.8, 0.1, 0.1), transform=fg.figure.transFigure)
+
+    # handles, labels = ax.get_legend_handles_labels()
+    # labels = [
+    #     "Split",
+    #     "train",
+    #     "val",
+    #     "test",
+    #     "Assay Range",
+    #     "Below Range",
+    #     "In Range",
+    #     "Above Range",
+    # ]
+    # ax.legend(
+    #     handles=handles,
+    #     labels=labels,
+    #     # loc="upper right",
+    # )
 
     # Calculate MAEs
     maes = ["MAE"]
@@ -138,12 +162,12 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
 
     metrics_text = "\n\n".join([mae_text, rmse_text, sp_r_text, tau_text])
     ax.text(
-        x=0.85,
-        y=0.5,
+        x=0.925,
+        y=0.75,
         s=metrics_text,
-        transform=fig.transFigure,
+        transform=fg.figure.transFigure,
         ha="left",
-        va="center",
+        va="top",
     )
 
     if fn:
