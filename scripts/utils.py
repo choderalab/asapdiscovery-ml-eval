@@ -4,10 +4,77 @@ import pandas
 from scipy.stats import bootstrap, kendalltau, spearmanr
 import seaborn as sns
 
-color_palette = dict(zip(["train", "val", "test"], sns.color_palette()[:3]))
+
+def calculate_statistics(df):
+    stats_dict = {"train": {}, "val": {}, "test": {}}
+
+    for i, sp in enumerate(["train", "val", "test"]):
+        df_tmp = df.loc[df["split"] == sp, ["target", "pred"]]
+
+        # Calculate MAE and bootstrapped confidence interval
+        mae = (df_tmp["target"] - df_tmp["pred"]).abs().mean()
+        conf_interval = bootstrap(
+            (df_tmp["target"], df_tmp["pred"]),
+            statistic=lambda target, pred: np.abs(target - pred).mean(),
+            method="basic",
+            confidence_level=0.95,
+            paired=True,
+        ).confidence_interval
+        stats_dict[sp]["mae"] = {
+            "value": mae,
+            "95ci_low": conf_interval.low,
+            "95ci_high": conf_interval.high,
+        }
+
+        # Calculate RMSE and bootstrapped confidence interval
+        rmse = np.sqrt((df_tmp["target"] - df_tmp["pred"]).pow(2).mean())
+        conf_interval = bootstrap(
+            (df_tmp["target"], df_tmp["pred"]),
+            statistic=lambda target, pred: np.sqrt(np.power(target - pred, 2).mean()),
+            method="basic",
+            confidence_level=0.95,
+            paired=True,
+        ).confidence_interval
+        stats_dict[sp]["rmse"] = {
+            "value": rmse,
+            "95ci_low": conf_interval.low,
+            "95ci_high": conf_interval.high,
+        }
+
+        # Calculate Spearman r and bootstrapped confidence interval
+        sp_r = spearmanr(df_tmp["target"], df_tmp["pred"]).statistic
+        conf_interval = bootstrap(
+            (df_tmp["target"], df_tmp["pred"]),
+            statistic=lambda target, pred: spearmanr(target, pred).statistic,
+            method="basic",
+            confidence_level=0.95,
+            paired=True,
+        ).confidence_interval
+        stats_dict[sp]["sp_r"] = {
+            "value": sp_r,
+            "95ci_low": conf_interval.low,
+            "95ci_high": conf_interval.high,
+        }
+
+        # Calculate Kendall's tau and bootstrapped confidence interval
+        tau = kendalltau(df_tmp["target"], df_tmp["pred"]).statistic
+        conf_interval = bootstrap(
+            (df_tmp["target"], df_tmp["pred"]),
+            statistic=lambda target, pred: kendalltau(target, pred).statistic,
+            method="basic",
+            confidence_level=0.95,
+            paired=True,
+        ).confidence_interval
+        stats_dict[sp]["tau"] = {
+            "value": tau,
+            "95ci_low": conf_interval.low,
+            "95ci_high": conf_interval.high,
+        }
+
+    return stats_dict
 
 
-def plot_model_preds_scatter(loss_df, lab, fn=None):
+def plot_model_preds_scatter(loss_df, lab, fn=None, stats_dict={}):
     # Set so the legend looks nicer
     legend_text_mapper = {-1: "Below Range", 0: "In Range", 1: "Above Range"}
     loss_df["Assay Range"] = list(map(legend_text_mapper.get, loss_df["in_range"]))
@@ -50,79 +117,49 @@ def plot_model_preds_scatter(loss_df, lab, fn=None):
             ls="--",
         )
 
-        # Shade  0.5 kcal/mol and 1 kcal/mol regions
+        # Shade 0.5 pIC50 and 1 pIC50 regions
         ax.fill_between(
             [min_val, max_val],
-            [min_val - 0.5 * np.log(10), max_val - 0.5 * np.log(10)],
-            [min_val + 0.5 * np.log(10), max_val + 0.5 * np.log(10)],
+            [min_val - 0.5, max_val - 0.5],
+            [min_val + 0.5, max_val + 0.5],
             color="gray",
             alpha=0.2,
         )
         ax.fill_between(
             [min_val, max_val],
-            [min_val - np.log(10), max_val - np.log(10)],
-            [min_val + np.log(10), max_val + np.log(10)],
+            [min_val - 1, max_val - 1],
+            [min_val + 1, max_val + 1],
             color="gray",
             alpha=0.2,
         )
 
+    if not stats_dict:
+        stats_dict = calculate_statistics(df_in_range)
     for i, sp in enumerate(["train", "val", "test"]):
-        df_tmp = df_in_range.loc[df_in_range["split"] == sp, ["target", "pred"]]
-
-        # Calculate MAE and bootstrapped confidence interval
-        mae = (df_tmp["target"] - df_tmp["pred"]).abs().mean()
-        conf_interval = bootstrap(
-            (df_tmp["target"], df_tmp["pred"]),
-            statistic=lambda target, pred: np.abs(target - pred).mean(),
-            method="basic",
-            confidence_level=0.95,
-            paired=True,
-        ).confidence_interval
         mae_str = (
             "MAE: "
-            f"${mae:0.3f}^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
+            f"${stats_dict[sp]['mae']['value']:0.3f}"
+            f"^{{{stats_dict[sp]['mae']['95ci_high']:0.3f}}}"
+            f"_{{{stats_dict[sp]['mae']['95ci_low']:0.3f}}}$"
         )
-
-        # Calculate RMSE and bootstrapped confidence interval
-        rmse = np.sqrt((df_tmp["target"] - df_tmp["pred"]).pow(2).mean())
-        conf_interval = bootstrap(
-            (df_tmp["target"], df_tmp["pred"]),
-            statistic=lambda target, pred: np.sqrt(np.power(target - pred, 2).mean()),
-            method="basic",
-            confidence_level=0.95,
-            paired=True,
-        ).confidence_interval
         rmse_str = (
             "RMSE: "
-            f"${rmse:0.3f}^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
+            f"${stats_dict[sp]['rmse']['value']:0.3f}"
+            f"^{{{stats_dict[sp]['rmse']['95ci_high']:0.3f}}}"
+            f"_{{{stats_dict[sp]['rmse']['95ci_low']:0.3f}}}$"
         )
-
-        # Calculate Spearman r and bootstrapped confidence interval
-        sp_r = spearmanr(df_tmp["target"], df_tmp["pred"]).statistic
-        conf_interval = bootstrap(
-            (df_tmp["target"], df_tmp["pred"]),
-            statistic=lambda target, pred: spearmanr(target, pred).statistic,
-            method="basic",
-            confidence_level=0.95,
-            paired=True,
-        ).confidence_interval
         sp_r_str = (
             "Spearman's $\\rho$: "
-            f"${sp_r:0.3f}^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
+            f"${stats_dict[sp]['sp_r']['value']:0.3f}"
+            f"^{{{stats_dict[sp]['sp_r']['95ci_high']:0.3f}}}"
+            f"_{{{stats_dict[sp]['sp_r']['95ci_low']:0.3f}}}$"
         )
 
-        # Calculate Kendall's tau and bootstrapped confidence interval
-        tau = kendalltau(df_tmp["target"], df_tmp["pred"]).statistic
-        conf_interval = bootstrap(
-            (df_tmp["target"], df_tmp["pred"]),
-            statistic=lambda target, pred: kendalltau(target, pred).statistic,
-            method="basic",
-            confidence_level=0.95,
-            paired=True,
-        ).confidence_interval
         tau_str = (
             "Kendall's $\\tau$: "
-            f"${tau:0.3f}^{{{conf_interval.high:0.3f}}}_{{{conf_interval.low:0.3f}}}$"
+            f"${stats_dict[sp]['tau']['value']:0.3f}"
+            f"^{{{stats_dict[sp]['tau']['95ci_high']:0.3f}}}"
+            f"_{{{stats_dict[sp]['tau']['95ci_low']:0.3f}}}$"
         )
 
         metrics_text = "\n".join([mae_str, rmse_str, sp_r_str, tau_str])
