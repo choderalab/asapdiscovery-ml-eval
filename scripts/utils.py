@@ -1,3 +1,4 @@
+from itertools import product
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas
@@ -171,6 +172,70 @@ def plot_model_preds_scatter(loss_df, lab, fn=None, stats_dict={}):
             ha="left",
             va="top",
         )
+
+    if fn:
+        plt.savefig(fn, dpi=200, bbox_inches="tight")
+
+
+def plot_stats_summary(stats_df, fn=None):
+    # Reform DF into dict
+    stats_dict = {
+        lab: (
+            g.groupby("split")[["statistic", "value", "95ci_low", "95ci_high"]]
+            .apply(lambda x: x.set_index("statistic").to_dict(orient="index"))
+            .to_dict()
+        )
+        for lab, g in stats_df.groupby("lab")
+    }
+
+    # Make the initial plots
+    fg = sns.catplot(
+        stats_df,
+        x="statistic",
+        y="value",
+        order=["mae", "rmse", "sp_r", "tau"],
+        hue="lab",
+        hue_order=sorted(stats_df["lab"].unique()),
+        col="split",
+        col_order=["train", "val", "test"],
+        kind="bar",
+        errorbar=None,
+    )
+
+    # Adjust the axes
+    for split, ax in zip(["train", "val", "test"], fg.axes[0]):
+        # Plot the error bars
+        for patch, (lab, statistic) in zip(
+            ax.patches,
+            product(sorted(stats_df["lab"].unique()), ["mae", "rmse", "sp_r", "tau"]),
+        ):
+            x = patch.get_x() + 0.5 * patch.get_width()
+            y = patch.get_height()
+            ax.errorbar(
+                x=x,
+                y=y,
+                yerr=[
+                    [
+                        stats_dict[lab][split][statistic]["value"]
+                        - stats_dict[lab][split][statistic]["95ci_low"]
+                    ],
+                    [
+                        stats_dict[lab][split][statistic]["95ci_high"]
+                        - stats_dict[lab][split][statistic]["value"]
+                    ],
+                ],
+                color="black",
+            )
+
+        # Fix labels
+        ax.set_xlabel("Statistic")
+        ax.set_xticklabels(["MAE", "RMSE", "Spearman's $\\rho$", "Kendall's $\\tau$"])
+
+    # Only the first ax has a ylabel
+    fg.axes[0, 0].set_ylabel("Statistic Value")
+
+    # Adjust legend title
+    fg.legend.set_title("Model")
 
     if fn:
         plt.savefig(fn, dpi=200, bbox_inches="tight")
