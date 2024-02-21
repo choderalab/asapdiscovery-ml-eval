@@ -185,7 +185,7 @@ def plot_stats_summary(stats_df, fn=None):
             .apply(lambda x: x.set_index("statistic").to_dict(orient="index"))
             .to_dict()
         )
-        for lab, g in stats_df.groupby("lab")
+        for lab, g in stats_df.groupby("label")
     }
 
     # Make the initial plots
@@ -194,8 +194,8 @@ def plot_stats_summary(stats_df, fn=None):
         x="statistic",
         y="value",
         order=["mae", "rmse", "sp_r", "tau"],
-        hue="lab",
-        hue_order=sorted(stats_df["lab"].unique()),
+        hue="label",
+        hue_order=sorted(stats_df["label"].unique()),
         col="split",
         col_order=["train", "val", "test"],
         kind="bar",
@@ -207,7 +207,7 @@ def plot_stats_summary(stats_df, fn=None):
         # Plot the error bars
         for patch, (lab, statistic) in zip(
             ax.patches,
-            product(sorted(stats_df["lab"].unique()), ["mae", "rmse", "sp_r", "tau"]),
+            product(sorted(stats_df["label"].unique()), ["mae", "rmse", "sp_r", "tau"]),
         ):
             x = patch.get_x() + 0.5 * patch.get_width()
             y = patch.get_height()
