@@ -1,5 +1,6 @@
 from itertools import product
 import matplotlib.pyplot as plt
+import matplotlib.table
 import numpy as np
 import pandas
 from scipy.stats import bootstrap, kendalltau, spearmanr
@@ -87,6 +88,8 @@ def plot_model_preds_scatter(loss_df, lab, fn=None, stats_dict={}):
         x="target",
         y="pred",
         col="split",
+        col_wrap=2,
+        col_order=["train", "na", "val", "test"],
         style="Assay Range",
         markers={"Below Range": "<", "In Range": "o", "Above Range": ">"},
         style_order=["Below Range", "In Range", "Above Range"],
@@ -100,7 +103,7 @@ def plot_model_preds_scatter(loss_df, lab, fn=None, stats_dict={}):
     min_val = loss_df.loc[:, ["target", "pred"]].values.flatten().min() - 0.5
     max_val = loss_df.loc[:, ["target", "pred"]].values.flatten().max() + 0.5
 
-    for ax in fg.axes[0]:
+    for ax in fg.axes.flatten():
         # Set axis labels
         ax.set_ylabel("Predicted pIC50")
         ax.set_xlabel("Experimental pIC50")
@@ -136,42 +139,60 @@ def plot_model_preds_scatter(loss_df, lab, fn=None, stats_dict={}):
 
     if not stats_dict:
         stats_dict = calculate_statistics(df_in_range)
-    for i, sp in enumerate(["train", "val", "test"]):
-        mae_str = (
-            "MAE: "
-            f"${stats_dict[sp]['mae']['value']:0.3f}"
-            f"^{{{stats_dict[sp]['mae']['95ci_high']:0.3f}}}"
-            f"_{{{stats_dict[sp]['mae']['95ci_low']:0.3f}}}$"
+
+    # Clear stats table axes
+    ax = fg.axes_dict["na"]
+    ax.clear()
+    ax.axis("off")
+
+    # Set up  table
+    table_dict = {
+        "mae": ["MAE"],
+        "rmse": ["RMSE"],
+        "sp_r": ["Spearman's $\\rho$"],
+        "tau": ["Kendall's $\\tau$"],
+    }
+    col_headers = ["Statistic", "Train", "Val", "Test"]
+    for sp in ["train", "val", "test"]:
+        table_dict["mae"].append(
+            (
+                f"${stats_dict[sp]['mae']['value']:0.2f}"
+                f"^{{{stats_dict[sp]['mae']['95ci_high']:0.2f}}}"
+                f"_{{{stats_dict[sp]['mae']['95ci_low']:0.2f}}}$"
+            )
         )
-        rmse_str = (
-            "RMSE: "
-            f"${stats_dict[sp]['rmse']['value']:0.3f}"
-            f"^{{{stats_dict[sp]['rmse']['95ci_high']:0.3f}}}"
-            f"_{{{stats_dict[sp]['rmse']['95ci_low']:0.3f}}}$"
+        table_dict["rmse"].append(
+            (
+                f"${stats_dict[sp]['rmse']['value']:0.2f}"
+                f"^{{{stats_dict[sp]['rmse']['95ci_high']:0.2f}}}"
+                f"_{{{stats_dict[sp]['rmse']['95ci_low']:0.2f}}}$"
+            )
         )
-        sp_r_str = (
-            "Spearman's $\\rho$: "
-            f"${stats_dict[sp]['sp_r']['value']:0.3f}"
-            f"^{{{stats_dict[sp]['sp_r']['95ci_high']:0.3f}}}"
-            f"_{{{stats_dict[sp]['sp_r']['95ci_low']:0.3f}}}$"
+        table_dict["sp_r"].append(
+            (
+                f"${stats_dict[sp]['sp_r']['value']:0.2f}"
+                f"^{{{stats_dict[sp]['sp_r']['95ci_high']:0.2f}}}"
+                f"_{{{stats_dict[sp]['sp_r']['95ci_low']:0.2f}}}$"
+            )
+        )
+        table_dict["tau"].append(
+            (
+                f"${stats_dict[sp]['tau']['value']:0.2f}"
+                f"^{{{stats_dict[sp]['tau']['95ci_high']:0.2f}}}"
+                f"_{{{stats_dict[sp]['tau']['95ci_low']:0.2f}}}$"
+            )
         )
 
-        tau_str = (
-            "Kendall's $\\tau$: "
-            f"${stats_dict[sp]['tau']['value']:0.3f}"
-            f"^{{{stats_dict[sp]['tau']['95ci_high']:0.3f}}}"
-            f"_{{{stats_dict[sp]['tau']['95ci_low']:0.3f}}}$"
-        )
-
-        metrics_text = "\n".join([mae_str, rmse_str, sp_r_str, tau_str])
-        fg.axes[0, i].text(
-            x=0.575,
-            y=0.275,
-            s=metrics_text,
-            transform=fg.axes[0, i].transAxes,
-            ha="left",
-            va="top",
-        )
+    col_width = 0.2
+    matplotlib.table.table(
+        ax=ax,
+        cellText=[row for row in table_dict.values()],
+        colLabels=col_headers,
+        colWidths=[1 - col_width * 3] + [col_width] * 3,
+        loc="center",
+        fontsize=30,
+    )
+    # table.auto_set_font_size(False)
 
     if fn:
         plt.savefig(fn, dpi=200, bbox_inches="tight")
