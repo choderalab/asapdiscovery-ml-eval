@@ -93,6 +93,7 @@ def plot_model_preds_scatter(loss_df, lab, fn=None, stats_dict={}):
         style="Assay Range",
         markers={"Below Range": "<", "In Range": "o", "Above Range": ">"},
         style_order=["Below Range", "In Range", "Above Range"],
+        facet_kws={"sharex": False, "sharey": False},
     )
 
     # Figure title
@@ -103,10 +104,20 @@ def plot_model_preds_scatter(loss_df, lab, fn=None, stats_dict={}):
     min_val = loss_df.loc[:, ["target", "pred"]].values.flatten().min() - 0.5
     max_val = loss_df.loc[:, ["target", "pred"]].values.flatten().max() + 0.5
 
-    for ax in fg.axes.flatten():
-        # Set axis labels
-        ax.set_ylabel("Predicted pIC50")
-        ax.set_xlabel("Experimental pIC50")
+    # Only set y label for left side plots
+    fg.axes[0].set_ylabel("Predicted $\mathrm{pIC}_{50}$")
+    fg.axes[2].set_ylabel("Predicted $\mathrm{pIC}_{50}$")
+
+    # Only set x label for bottom plots
+    fg.axes[2].set_xlabel("Experimental $\mathrm{pIC}_{50}$")
+    fg.axes[3].set_xlabel("Experimental $\mathrm{pIC}_{50}$")
+
+    for sp in ["train", "val", "test"]:
+        # Get the right axes
+        ax = fg.axes_dict[sp]
+
+        # Set title
+        ax.set_title(sp.title())
 
         # Make it a square
         ax.set_aspect("equal", "box")
@@ -143,56 +154,56 @@ def plot_model_preds_scatter(loss_df, lab, fn=None, stats_dict={}):
     # Clear stats table axes
     ax = fg.axes_dict["na"]
     ax.clear()
-    ax.axis("off")
 
-    # Set up  table
-    table_dict = {
-        "mae": ["MAE"],
-        "rmse": ["RMSE"],
-        "sp_r": ["Spearman's $\\rho$"],
-        "tau": ["Kendall's $\\tau$"],
-    }
-    col_headers = ["Statistic", "Train", "Val", "Test"]
-    for sp in ["train", "val", "test"]:
-        table_dict["mae"].append(
-            (
-                f"${stats_dict[sp]['mae']['value']:0.2f}"
-                f"^{{{stats_dict[sp]['mae']['95ci_high']:0.2f}}}"
-                f"_{{{stats_dict[sp]['mae']['95ci_low']:0.2f}}}$"
-            )
-        )
-        table_dict["rmse"].append(
-            (
-                f"${stats_dict[sp]['rmse']['value']:0.2f}"
-                f"^{{{stats_dict[sp]['rmse']['95ci_high']:0.2f}}}"
-                f"_{{{stats_dict[sp]['rmse']['95ci_low']:0.2f}}}$"
-            )
-        )
-        table_dict["sp_r"].append(
-            (
-                f"${stats_dict[sp]['sp_r']['value']:0.2f}"
-                f"^{{{stats_dict[sp]['sp_r']['95ci_high']:0.2f}}}"
-                f"_{{{stats_dict[sp]['sp_r']['95ci_low']:0.2f}}}$"
-            )
-        )
-        table_dict["tau"].append(
-            (
-                f"${stats_dict[sp]['tau']['value']:0.2f}"
-                f"^{{{stats_dict[sp]['tau']['95ci_high']:0.2f}}}"
-                f"_{{{stats_dict[sp]['tau']['95ci_low']:0.2f}}}$"
-            )
-        )
-
-    col_width = 0.2
-    matplotlib.table.table(
-        ax=ax,
-        cellText=[row for row in table_dict.values()],
-        colLabels=col_headers,
-        colWidths=[1 - col_width * 3] + [col_width] * 3,
-        loc="center",
-        fontsize=30,
+    # Plot bar chart
+    # Reform dict into DF
+    stats_rows = [
+        [sp, stat, stat_d["value"], stat_d["95ci_low"], stat_d["95ci_high"]]
+        for sp, sp_d in stats_dict.items()
+        for stat, stat_d in sp_d.items()
+    ]
+    stats_df = pandas.DataFrame(
+        stats_rows,
+        columns=["split", "statistic", "value", "95ci_low", "95ci_high"],
     )
-    # table.auto_set_font_size(False)
+    sns.barplot(
+        stats_df,
+        x="statistic",
+        y="value",
+        order=["mae", "rmse", "sp_r", "tau"],
+        hue="split",
+        hue_order=["train", "val", "test"],
+        errorbar=None,
+        ax=ax,
+    )
+    for patch, (sp, statistic) in zip(
+        ax.patches,
+        product(["train", "val", "test"], ["mae", "rmse", "sp_r", "tau"]),
+    ):
+        x = patch.get_x() + 0.5 * patch.get_width()
+        y = patch.get_height()
+        ax.errorbar(
+            x=x,
+            y=y,
+            yerr=[
+                [
+                    stats_dict[sp][statistic]["value"]
+                    - stats_dict[sp][statistic]["95ci_low"]
+                ],
+                [
+                    stats_dict[sp][statistic]["95ci_high"]
+                    - stats_dict[sp][statistic]["value"]
+                ],
+            ],
+            color="black",
+        )
+
+    # Fix labels
+    ax.set_title("Statistics")
+    ax.set_xticklabels(["MAE", "RMSE", "Spearman's $\\rho$", "Kendall's $\\tau$"])
+    ax.set_xlabel("")
+    ax.set_ylabel("Statistic Value")
+    ax.legend(labels=["Train", "Val", "Test"], title="Split")
 
     if fn:
         plt.savefig(fn, dpi=200, bbox_inches="tight")
