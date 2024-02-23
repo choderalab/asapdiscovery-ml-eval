@@ -1,6 +1,5 @@
 from itertools import product
 import matplotlib.pyplot as plt
-import matplotlib.table
 import numpy as np
 import pandas
 from scipy.stats import bootstrap, kendalltau, spearmanr
@@ -148,62 +147,67 @@ def plot_model_preds_scatter(loss_df, lab, fn=None, stats_dict={}):
             alpha=0.2,
         )
 
-    if not stats_dict:
-        stats_dict = calculate_statistics(df_in_range)
-
     # Clear stats table axes
     ax = fg.axes_dict["na"]
     ax.clear()
 
-    # Plot bar chart
-    # Reform dict into DF
-    stats_rows = [
-        [sp, stat, stat_d["value"], stat_d["95ci_low"], stat_d["95ci_high"]]
-        for sp, sp_d in stats_dict.items()
-        for stat, stat_d in sp_d.items()
-    ]
-    stats_df = pandas.DataFrame(
-        stats_rows,
-        columns=["split", "statistic", "value", "95ci_low", "95ci_high"],
-    )
-    sns.barplot(
-        stats_df,
-        x="statistic",
-        y="value",
-        order=["mae", "rmse", "sp_r", "tau"],
-        hue="split",
-        hue_order=["train", "val", "test"],
-        errorbar=None,
-        ax=ax,
-    )
-    for patch, (sp, statistic) in zip(
-        ax.patches,
-        product(["train", "val", "test"], ["mae", "rmse", "sp_r", "tau"]),
-    ):
-        x = patch.get_x() + 0.5 * patch.get_width()
-        y = patch.get_height()
-        ax.errorbar(
-            x=x,
-            y=y,
-            yerr=[
-                [
-                    stats_dict[sp][statistic]["value"]
-                    - stats_dict[sp][statistic]["95ci_low"]
-                ],
-                [
-                    stats_dict[sp][statistic]["95ci_high"]
-                    - stats_dict[sp][statistic]["value"]
-                ],
-            ],
-            color="black",
-        )
+    if stats_dict is not None:
+        # Do stats-related stuff
+        if not stats_dict:
+            stats_dict = calculate_statistics(df_in_range)
 
-    # Fix labels
-    ax.set_title("Statistics")
-    ax.set_xticklabels(["MAE", "RMSE", "Spearman's $\\rho$", "Kendall's $\\tau$"])
-    ax.set_xlabel("")
-    ax.set_ylabel("Statistic Value")
-    ax.legend(labels=["Train", "Val", "Test"], title="Split")
+        # Plot bar chart
+        # Reform dict into DF
+        stats_rows = [
+            [sp, stat, stat_d["value"], stat_d["95ci_low"], stat_d["95ci_high"]]
+            for sp, sp_d in stats_dict.items()
+            for stat, stat_d in sp_d.items()
+        ]
+        stats_df = pandas.DataFrame(
+            stats_rows,
+            columns=["split", "statistic", "value", "95ci_low", "95ci_high"],
+        )
+        sns.barplot(
+            stats_df,
+            x="statistic",
+            y="value",
+            order=["mae", "rmse", "sp_r", "tau"],
+            hue="split",
+            hue_order=["train", "val", "test"],
+            errorbar=None,
+            ax=ax,
+        )
+        for patch, (sp, statistic) in zip(
+            ax.patches,
+            product(["train", "val", "test"], ["mae", "rmse", "sp_r", "tau"]),
+        ):
+            x = patch.get_x() + 0.5 * patch.get_width()
+            y = patch.get_height()
+            ax.errorbar(
+                x=x,
+                y=y,
+                yerr=[
+                    [
+                        stats_dict[sp][statistic]["value"]
+                        - stats_dict[sp][statistic]["95ci_low"]
+                    ],
+                    [
+                        stats_dict[sp][statistic]["95ci_high"]
+                        - stats_dict[sp][statistic]["value"]
+                    ],
+                ],
+                color="black",
+            )
+
+        # Fix labels
+        ax.set_title("Statistics")
+        ax.set_xticklabels(["MAE", "RMSE", "Spearman's $\\rho$", "Kendall's $\\tau$"])
+        ax.set_xlabel("")
+        ax.set_ylabel("Statistic Value")
+        ax.legend(labels=["Train", "Val", "Test"], title="Split")
+    else:
+        # Just turn off stats
+        ax.axis("off")
 
     if fn:
         plt.savefig(fn, dpi=200, bbox_inches="tight")
