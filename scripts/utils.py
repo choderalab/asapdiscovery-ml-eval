@@ -75,6 +75,23 @@ def calculate_statistics(df):
     return stats_dict
 
 
+def plot_losses(df, fn=None, splits=["train", "val", "test"]):
+    # Subset to only include desired splits
+    idx = df["split"].isin(splits)
+    df = df.loc[idx, :]
+
+    fig, ax = plt.subplots()
+    sns.lineplot(df, x="epoch", y="loss", hue="label", alpha=0.7, ax=ax)
+
+    ax.set_title("Validation Loss Curves")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Loss (Squared pIC$_{50}$)")
+    ax.legend(title="Model")
+
+    if fn:
+        fig.savefig(fn, dpi=200, bbox_inches="tight")
+
+
 def plot_model_preds_scatter(loss_df, lab, fn=None, stats_dict={}):
     # Set so the legend looks nicer
     legend_text_mapper = {-1: "Below Range", 0: "In Range", 1: "Above Range"}
