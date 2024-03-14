@@ -323,3 +323,58 @@ def reform_loss_dict(loss_dict, pred_epoch=-1):
         }
     )
     return df
+
+
+def reform_full_loss_dict(loss_dict):
+    """
+    Reform a loss_dict into a DataFrame with the following columns:
+    * "compound_id": Compound id
+    * "split": Which split this compound was in
+    * "target": Target (experimental) value of this compound
+    * "in_range": Whether this measurement was below (-1) within (0) or above (1) the
+                  dynamic range of the assay
+    * "pred": Model prediction at the epoch given by `pred_epoch`
+
+    Parameters
+    ----------
+    loss_dict : dict
+        Dict organized as {split: {compound_id: {exp_dict}}}, where exp_dict contains
+        at minimum values for "target", "in_range", and "preds"
+    pred_epoch : int, default=-1
+        Which epoch to take the prediction value at (defaults to last)
+
+    Returns
+    -------
+    pandas.DataFrame
+        Reformed DataFrame, as described above
+    """
+    all_split = []
+    all_compound_id = []
+    all_target = []
+    all_range = []
+    all_epoch = []
+    all_pred = []
+    all_loss = []
+    for sp, sp_dict in loss_dict.items():
+        for compound_id, cpd_dict in sp_dict.items():
+            n_epochs = len(cpd_dict["preds"])
+            all_split.extend([sp] * n_epochs)
+            all_compound_id.extend([compound_id] * n_epochs)
+            all_target.extend([cpd_dict["target"]] * n_epochs)
+            all_range.extend([cpd_dict["in_range"]] * n_epochs)
+            all_pred.extend(cpd_dict["preds"])
+            all_epoch.extend(np.arange(n_epochs) + 1)
+            all_loss.extend(cpd_dict["losses"])
+
+    df = pandas.DataFrame(
+        {
+            "compound_id": all_compound_id,
+            "split": all_split,
+            "target": all_target,
+            "in_range": all_range,
+            "pred": all_pred,
+            "epoch": all_epoch,
+            "loss": all_loss,
+        }
+    )
+    return df
