@@ -23,9 +23,10 @@ from utils import plot_losses, reform_full_loss_dict
 )
 def main(in_file, out_file):
     all_df = []
+    converged_dict = {}
     for line in in_file.read_text().split("\n"):
         try:
-            loss_dict_fn, lab = line.split(",")
+            loss_dict_fn, lab, *converged_epoch = line.split(",")
         except ValueError:
             if line == "":
                 continue
@@ -38,11 +39,21 @@ def main(in_file, out_file):
             print(f"Couldn't find file {loss_dict_fn}, skipping", flush=True)
             continue
 
+        if len(converged_epoch) > 0:
+            converged_dict[lab] = int(converged_epoch[0])
+
         df["label"] = lab
         all_df.append(df)
 
     all_df = pandas.concat(all_df, ignore_index=True)
-    all_df = all_df.groupby(["label", "split", "epoch"])["loss"].mean().reset_index()
+    idx = ["label", "split", "epoch"]
+    all_df = all_df.groupby(idx)["loss"].mean().reset_index()
+
+    all_df["trained"] = [
+        "trained" if epoch < converged_dict[label] else "not trained"
+        for _, (epoch, label) in all_df[["epoch", "label"]].iterrows()
+    ]
+    print(all_df.head(), flush=True)
 
     plot_losses(all_df, fn=out_file, splits=["val"])
 

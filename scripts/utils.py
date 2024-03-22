@@ -80,8 +80,25 @@ def plot_losses(df, fn=None, splits=["train", "val", "test"]):
     idx = df["split"].isin(splits)
     df = df.loc[idx, :]
 
+    # Set style stuff in case some of the epochs weren't used for training
+    if "trained" in df.columns:
+        style = "trained"
+        dashes = {"trained": "", "not trained": (2, 2)}
+    else:
+        style = None
+        dashes = True
+
     fig, ax = plt.subplots()
-    sns.lineplot(df, x="epoch", y="loss", hue="label", alpha=0.7, ax=ax)
+    sns.lineplot(
+        df,
+        x="epoch",
+        y="loss",
+        hue="label",
+        alpha=0.7,
+        style=style,
+        dashes=dashes,
+        ax=ax,
+    )
 
     ax.set_title("Validation Loss Curves")
     ax.set_xlabel("Epoch")
