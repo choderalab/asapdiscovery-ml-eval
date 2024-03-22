@@ -1,9 +1,27 @@
 import click
+from copy import deepcopy
 import json
+import multiprocessing as mp
 import pandas
 from pathlib import Path
 
 from utils import calculate_statistics, reform_loss_dict
+
+
+def mp_func(loss_dict, pred_epoch, out_fn):
+    df = reform_loss_dict(loss_dict, pred_epoch=pred_epoch)
+    stats_dict = calculate_statistics(df.loc[df["in_range"] == 0, :])
+
+    stats_rows = [
+        ["", sp, stat, stat_d["value"], stat_d["95ci_low"], stat_d["95ci_high"]]
+        for sp, sp_d in stats_dict.items()
+        for stat, stat_d in sp_d.items()
+    ]
+    stats_df = pandas.DataFrame(
+        stats_rows,
+        columns=["label", "split", "statistic", "value", "95ci_low", "95ci_high"],
+    )
+    stats_df.to_csv(out_fn, index=False)
 
 
 @click.command()
@@ -21,7 +39,14 @@ from utils import calculate_statistics, reform_loss_dict
     type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
     help="Output directory to store all CSV file.",
 )
-def main(in_file, out_dir):
+@click.option(
+    "-n",
+    "--n-workers",
+    type=int,
+    default=1,
+    help="Number of concurrent processes to run.",
+)
+def main(in_file, out_dir, n_workers=1):
     # Make output dir if it doesn't already exist
     out_dir.mkdir(exist_ok=True)
 
@@ -31,24 +56,11 @@ def main(in_file, out_dir):
     # Get total n epochs
     n_epochs = len(next(iter(loss_dict["train"].values()))["preds"])
 
-    # Calc statistics for each epoch
-    for i in range(n_epochs):
-        df = reform_loss_dict(loss_dict, pred_epoch=i)
-        stats_dict = calculate_statistics(df.loc[df["in_range"] == 0, :])
+    # Set up args for multiprocessing
+    mp_args = [(deepcopy(loss_dict), i, out_dir / f"{i}.csv") for i in range(n_epochs)]
 
-        stats_rows = [
-            ["", sp, stat, stat_d["value"], stat_d["95ci_low"], stat_d["95ci_high"]]
-            for sp, sp_d in stats_dict.items()
-            for stat, stat_d in sp_d.items()
-        ]
-        stats_df = pandas.DataFrame(
-            stats_rows,
-            columns=["label", "split", "statistic", "value", "95ci_low", "95ci_high"],
-        )
-        stats_file = out_dir / f"{i}.csv"
-        stats_df.to_csv(stats_file, index=False)
-
-        print(f"Finished epoch {i}", flush=True)
+    with mp.Pool(processes=n_workers) as pool:
+        pool.starmap(mp_func, mp_args)
 
 
 if __name__ == "__main__":
