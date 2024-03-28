@@ -1,5 +1,4 @@
 import click
-from copy import deepcopy
 import json
 import multiprocessing as mp
 import pandas
@@ -8,8 +7,7 @@ from pathlib import Path
 from utils import calculate_statistics, reform_loss_dict
 
 
-def mp_func(loss_dict, pred_epoch, out_fn):
-    df = reform_loss_dict(loss_dict, pred_epoch=pred_epoch)
+def mp_func(df, out_fn):
     stats_dict = calculate_statistics(df.loc[df["in_range"] == 0, :])
 
     stats_rows = [
@@ -22,6 +20,8 @@ def mp_func(loss_dict, pred_epoch, out_fn):
         columns=["label", "split", "statistic", "value", "95ci_low", "95ci_high"],
     )
     stats_df.to_csv(out_fn, index=False)
+
+    print(out_fn, flush=True)
 
 
 @click.command()
@@ -56,9 +56,14 @@ def main(in_file, out_dir, n_workers=1):
     # Get total n epochs
     n_epochs = len(next(iter(loss_dict["train"].values()))["preds"])
 
+    print("Generating mp_args", flush=True)
     # Set up args for multiprocessing
-    mp_args = [(deepcopy(loss_dict), i, out_dir / f"{i}.csv") for i in range(n_epochs)]
+    mp_args = [
+        (reform_loss_dict(loss_dict, pred_epoch=i), out_dir / f"{i}.csv")
+        for i in range(n_epochs)
+    ]
 
+    print("Running jobs", flush=True)
     with mp.Pool(processes=n_workers) as pool:
         pool.starmap(mp_func, mp_args)
 
