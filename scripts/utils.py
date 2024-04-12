@@ -6,6 +6,25 @@ from scipy.stats import bootstrap, kendalltau, spearmanr
 import seaborn as sns
 
 
+def calculate_divergence(val_losses, win_sizes):
+    """
+    val_losses: list/np array of loss per epoch (n, )
+    win_sizes: list of window sizes
+    """
+
+    all_divergences = []
+    for win_size in win_sizes:
+        win_losses = [
+            np.asarray(val_losses[i : i + win_size])
+            for i in range(len(val_losses) - win_size + 1)
+        ]
+        win_means = [a.mean() for a in win_losses]
+        win_divergences = [np.abs(a - m).mean() for a, m in zip(win_losses, win_means)]
+        all_divergences.append(win_divergences)
+
+    return all_divergences
+
+
 def calculate_statistics(df):
     stats_dict = {"train": {}, "val": {}, "test": {}}
 
@@ -73,6 +92,48 @@ def calculate_statistics(df):
         }
 
     return stats_dict
+
+
+def plot_divergences_with_loss(train_losses, val_losses, win_sizes, fn_out=None):
+    fig, axes = plt.subplots(nrows=2, sharex=True, sharey=False, figsize=(12, 12))
+
+    for win_divergences, win_size, color in zip(
+        calculate_divergence(val_losses, win_sizes), win_sizes, sns.color_palette()
+    ):
+        sns.lineplot(
+            x=np.arange(len(win_divergences)) + win_size,
+            y=win_divergences,
+            label=f"Win Size: {win_size}",
+            color=color,
+            ax=axes[0],
+        )
+
+    sns.lineplot(
+        x=np.arange(len(train_losses)),
+        y=train_losses,
+        ax=axes[1],
+        label="Train Loss",
+    )
+    sns.lineplot(
+        x=np.arange(len(val_losses)),
+        y=val_losses,
+        ax=axes[1],
+        label="Val Loss",
+    )
+
+    axes[0].set_ylim((0, 0.1))
+    axes[0].axhline(0.05, ls="--", color="black")
+    axes[0].axhline(0.01, ls="--", color="black")
+
+    axes[0].set_ylabel("Divergence")
+    axes[1].set_ylabel("Loss (squared pIC50)")
+
+    axes[1].set_xlabel("Epoch")
+
+    if fn_out:
+        fig.savefig(fn_out, dpi=200, bbox_inches="tight")
+
+    return fig, axes
 
 
 def plot_losses(df, fn=None, splits=["train", "val", "test"]):
